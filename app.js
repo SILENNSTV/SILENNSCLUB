@@ -1,4 +1,3 @@
-
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 /* =========================================
@@ -7,7 +6,6 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const SUPABASE_URL = "https://xbpebgcssdzeiodueuhe.supabase.co";
 const SUPABASE_KEY = "sb_publishable_q2UabT0vQffBnzkw-WDDKA_1HelZysX";
-
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 let currentUser = null;
@@ -24,10 +22,6 @@ let champions = [];
 let gallery = [];
 let registrations = [];
 
-/* =========================================
-   HELPERS
-========================================= */
-
 const $ = id => document.getElementById(id);
 
 function escapeHTML(value) {
@@ -43,10 +37,8 @@ function escapeHTML(value) {
 function toast(message) {
  const element = $("toast");
  if (!element) return;
-
  element.textContent = message;
  element.style.display = "block";
-
  clearTimeout(toast.timer);
  toast.timer = setTimeout(() => {
   element.style.display = "none";
@@ -55,11 +47,8 @@ function toast(message) {
 
 function formatDate(value) {
  if (!value) return "Fecha pendiente";
-
  const date = new Date(value);
-
  if (Number.isNaN(date.getTime())) return "Fecha pendiente";
-
  return date.toLocaleString("es-AR", {
   dateStyle:"medium",
   timeStyle:"short"
@@ -68,7 +57,9 @@ function formatDate(value) {
 
 function showEmpty(id, message) {
  const element = $(id);
- if (element) element.innerHTML = `<div class="empty">${escapeHTML(message)}</div>`;
+ if (element) {
+  element.innerHTML = `<div class="empty">${escapeHTML(message)}</div>`;
+ }
 }
 
 function setText(id, value) {
@@ -78,10 +69,6 @@ function setText(id, value) {
 
 function getFormData(form) {
  return Object.fromEntries(new FormData(form).entries());
-}
-
-function setStatus(message) {
- setText("user-status", message);
 }
 
 function isWRC(game) {
@@ -270,7 +257,7 @@ async function loadAll() {
 }
 
 /* =========================================
-   RENDER: CAMPEONATOS
+   CAMPEONATOS
 ========================================= */
 
 function championshipCard(championship) {
@@ -357,7 +344,7 @@ async function registerChampionship(championshipId) {
 }
 
 /* =========================================
-   RENDER: EVENTOS
+   EVENTOS
 ========================================= */
 
 function renderEvents() {
@@ -382,7 +369,7 @@ function renderEvents() {
 }
 
 /* =========================================
-   RENDER: PILOTOS
+   PILOTOS
 ========================================= */
 
 function renderPilots() {
@@ -421,7 +408,7 @@ function renderPilots() {
 }
 
 /* =========================================
-   PERFIL DEL USUARIO
+   PERFIL
 ========================================= */
 
 function fillProfileForm() {
@@ -466,13 +453,11 @@ async function saveProfile(event) {
  ).map(input => input.value);
 
  let avatarUrl = currentProfile?.avatar_url || null;
-
  const avatarFile = $("profile-avatar")?.files?.[0];
 
  if (avatarFile) {
   const extension = avatarFile.name.split(".").pop();
-  const fileName = `${currentUser.id}-${Date.now()}.${extension}`;
-  const filePath = fileName;
+  const filePath = `${currentUser.id}-${Date.now()}.${extension}`;
 
   const { error:uploadError } = await supabase.storage
    .from("pilot-avatars")
@@ -518,12 +503,11 @@ async function saveProfile(event) {
  toast("¡Perfil actualizado!");
  await loadProfiles();
  await refreshUser();
- form.reset();
  fillProfileForm();
 }
 
 /* =========================================
-   RENDER: EQUIPOS
+   EQUIPOS
 ========================================= */
 
 function renderTeams() {
@@ -537,7 +521,6 @@ function renderTeams() {
 
  container.innerHTML = teams.map(team => {
   const members = teamMembers.filter(item => item.team_id === team.id);
-
   const logo = team.logo_url ||
    "https://placehold.co/500x250/101522/00e5ff?text=TEAM";
 
@@ -570,11 +553,7 @@ function fillTeamSelects() {
   if (!select) return;
 
   const oldValue = select.value;
-  const firstOption = id === "join-team-select"
-   ? "Seleccionar equipo"
-   : "Seleccionar equipo";
-
-  select.innerHTML = `<option value="">${firstOption}</option>`;
+  select.innerHTML = '<option value="">Seleccionar equipo</option>';
 
   teams.forEach(team => {
    const option = document.createElement("option");
@@ -826,4 +805,371 @@ function fillEventSelect() {
  select.innerHTML = '<option value="">Seleccionar evento</option>';
 
  events.forEach(event => {
-  const option = document.createElement("o
+  const option = document.createElement("option");
+  option.value = event.id;
+  option.textContent = event.name;
+  select.appendChild(option);
+ });
+
+ if (events.some(event => event.id === oldValue)) {
+  select.value = oldValue;
+ }
+}
+
+/* =========================================
+   AUTENTICACIÓN
+========================================= */
+
+function openAuth() {
+ const modal = $("auth-modal");
+ if (modal) modal.classList.add("show");
+}
+
+function closeAuth() {
+ const modal = $("auth-modal");
+ if (modal) modal.classList.remove("show");
+}
+
+function updateAccountUI() {
+ const authButton = $("auth-open");
+
+ if (authButton) {
+  authButton.textContent = currentUser
+   ? "Mi cuenta · " + (currentProfile?.display_name || currentUser.email)
+   : "Mi cuenta";
+ }
+
+ const profilePanel = $("profile-panel");
+
+ if (profilePanel) {
+  profilePanel.style.display = currentUser ? "" : "none";
+ }
+
+ document.querySelectorAll(".admin-only").forEach(element => {
+  element.style.display = isAdmin ? "" : "none";
+ });
+
+ renderMyTeam();
+
+ if (currentUser && currentProfile) {
+  fillProfileForm();
+ }
+}
+
+async function checkAdmin() {
+ isAdmin = false;
+
+ if (!currentUser) return;
+
+ const { data, error } = await supabase
+  .from("admin_users")
+  .select("user_id")
+  .eq("user_id", currentUser.id)
+  .maybeSingle();
+
+ if (error) {
+  console.warn("No se pudo verificar el rol admin. Revisá admin_users y sus políticas.", error);
+  isAdmin = false;
+ } else {
+  isAdmin = Boolean(data);
+ }
+}
+
+async function refreshUser() {
+ const { data:{ user } } = await supabase.auth.getUser();
+
+ currentUser = user || null;
+ currentProfile = null;
+
+ if (currentUser) {
+  const { data, error } = await supabase
+   .from("profiles")
+   .select("*")
+   .eq("id", currentUser.id)
+   .maybeSingle();
+
+  if (error) console.warn("No se pudo cargar el perfil:", error);
+
+  currentProfile = data || null;
+  await checkAdmin();
+ } else {
+  isAdmin = false;
+ }
+
+ updateAccountUI();
+ renderChampionships();
+}
+
+async function handleLogin(event) {
+ event.preventDefault();
+
+ const email = $("auth-email")?.value.trim();
+ const password = $("auth-password")?.value;
+
+ if (!email || !password) {
+  toast("Completá correo y contraseña.");
+  return;
+ }
+
+ const button = $("auth-submit");
+
+ if (button) {
+  button.disabled = true;
+  button.textContent = "Ingresando...";
+ }
+
+ const { error } = await supabase.auth.signInWithPassword({
+  email,
+  password
+ });
+
+ if (button) {
+  button.disabled = false;
+  button.textContent = "Ingresar";
+ }
+
+ if (error) {
+  console.error(error);
+  toast("No se pudo ingresar: revisá el correo y la contraseña.");
+  return;
+ }
+
+ await refreshUser();
+ closeAuth();
+
+ toast(isAdmin ? "¡Bienvenido, administrador!" : "¡Sesión iniciada correctamente!");
+
+ await loadAll();
+}
+
+async function handleSignup() {
+ const email = $("auth-email")?.value.trim();
+ const password = $("auth-password")?.value;
+
+ if (!email || !password) {
+  toast("Ingresá un correo y una contraseña para crear tu cuenta.");
+  return;
+ }
+
+ if (password.length < 6) {
+  toast("La contraseña debe tener al menos 6 caracteres.");
+  return;
+ }
+
+ const button = $("auth-signup");
+
+ if (button) {
+  button.disabled = true;
+  button.textContent = "Creando...";
+ }
+
+ const { data, error } = await supabase.auth.signUp({
+  email,
+  password
+ });
+
+ if (button) {
+  button.disabled = false;
+  button.textContent = "Crear cuenta";
+ }
+
+ if (error) {
+  console.error(error);
+  toast("No se pudo crear la cuenta: " + error.message);
+  return;
+ }
+
+ if (data.user && !data.session) {
+  toast("Cuenta creada. Revisá tu correo para confirmar el registro.");
+ } else {
+  await refreshUser();
+  closeAuth();
+  toast("¡Cuenta creada correctamente!");
+  await loadAll();
+ }
+}
+
+async function handlePasswordReset() {
+ const email = $("auth-email")?.value.trim();
+
+ if (!email) {
+  toast("Escribí tu correo para enviarte el enlace de recuperación.");
+  return;
+ }
+
+ const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  redirectTo: window.location.origin
+ });
+
+ if (error) {
+  console.error(error);
+  toast("No se pudo enviar el correo de recuperación.");
+  return;
+ }
+
+ toast("Te enviamos un enlace para recuperar la contraseña.");
+}
+
+/* =========================================
+   ADMINISTRACIÓN
+========================================= */
+
+async function adminInsert(table, payload, form) {
+ if (!isAdmin) {
+  toast("Esta función está disponible solo para administradores.");
+  return;
+ }
+
+ const { error } = await supabase
+  .from(table)
+  .insert(payload);
+
+ if (error) {
+  console.error(`Error guardando en ${table}:`, error);
+  toast("No se pudo guardar. Revisá las políticas de Supabase.");
+  return;
+ }
+
+ if (form) form.reset();
+
+ toast("¡Guardado correctamente!");
+ await loadAll();
+}
+
+async function saveChampionship(event) {
+ event.preventDefault();
+
+ const data = getFormData(event.currentTarget);
+
+ await adminInsert("championships", {
+  name:data.name,
+  game:data.game,
+  description:data.description || null,
+  status:data.status || "open"
+ }, event.currentTarget);
+}
+
+async function saveEvent(event) {
+ event.preventDefault();
+
+ const data = getFormData(event.currentTarget);
+
+ await adminInsert("events", {
+  name:data.name,
+  country:data.country || null,
+  starts_at:data.starts_at,
+  status:data.status || "upcoming"
+ }, event.currentTarget);
+}
+
+async function saveResult(event) {
+ event.preventDefault();
+
+ const data = getFormData(event.currentTarget);
+
+ await adminInsert("results", {
+  event_id:data.event_id,
+  team_id:data.team_id,
+  points:Number(data.points)
+ }, event.currentTarget);
+}
+
+async function saveChampion(event) {
+ event.preventDefault();
+
+ const data = getFormData(event.currentTarget);
+
+ await adminInsert("champions", {
+  team_id:data.team_id,
+  season:data.season || null,
+  description:data.description || null,
+  date:data.date || null
+ }, event.currentTarget);
+}
+
+async function saveGalleryItem(event) {
+ event.preventDefault();
+
+ const data = getFormData(event.currentTarget);
+
+ await adminInsert("gallery", {
+  title:data.title,
+  image_url:data.image_url,
+  pilot_id:currentUser?.id || null
+ }, event.currentTarget);
+}
+
+/* =========================================
+   EVENTOS DE LA PÁGINA
+========================================= */
+
+function bindEvents() {
+ $("auth-open")?.addEventListener("click", openAuth);
+ $("auth-close")?.addEventListener("click", closeAuth);
+
+ $("auth-modal")?.addEventListener("click", event => {
+  if (event.target === $("auth-modal")) closeAuth();
+ });
+
+ $("auth-form")?.addEventListener("submit", handleLogin);
+ $("auth-signup")?.addEventListener("click", handleSignup);
+ $("auth-reset")?.addEventListener("click", handlePasswordReset);
+
+ $("profile-form")?.addEventListener("submit", saveProfile);
+ $("team-form")?.addEventListener("submit", createTeam);
+ $("join-team-form")?.addEventListener("submit", joinTeam);
+
+ $("admin-championship-form")?.addEventListener("submit", saveChampionship);
+ $("admin-event-form")?.addEventListener("submit", saveEvent);
+ $("admin-result-form")?.addEventListener("submit", saveResult);
+ $("admin-champion-form")?.addEventListener("submit", saveChampion);
+ $("admin-gallery-form")?.addEventListener("submit", saveGalleryItem);
+
+ document.addEventListener("click", event => {
+  const button = event.target.closest(".championship-register");
+
+  if (!button) return;
+
+  if (button.dataset.login === "true") {
+   openAuth();
+   return;
+  }
+
+  if (button.dataset.id) {
+   registerChampionship(button.dataset.id);
+  }
+ });
+}
+
+/* =========================================
+   INICIO DE LA APLICACIÓN
+========================================= */
+
+async function initializeApp() {
+ bindEvents();
+
+ const year = $("year");
+
+ if (year) {
+  year.textContent = new Date().getFullYear();
+ }
+
+ document.querySelectorAll(".admin-only").forEach(element => {
+  element.style.display = "none";
+ });
+
+ await refreshUser();
+ await loadAll();
+
+ supabase.auth.onAuthStateChange((_event, _session) => {
+  setTimeout(async () => {
+   await refreshUser();
+   await loadAll();
+  }, 0);
+ });
+}
+
+initializeApp().catch(error => {
+ console.error("Error iniciando SILENNS CLUB:", error);
+ toast("Hubo un problema al iniciar la web. Revisá la consola.");
+});
